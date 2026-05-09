@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends
 from models.truck import Truck, TruckCreate, TruckResponse
 from database import get_db_connection
-from api_key.security import get_current_user
+from auth.security import get_api_key
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ def get_trucks():
 @router.post("/", response_model=TruckResponse)
 def create_truck(
     truck: TruckCreate,
-    current_user: str = Depends(get_current_user)
+    current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -54,7 +54,7 @@ def create_truck(
 def update_truck(
         truck_id: int,
         truck: TruckCreate,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -77,7 +77,7 @@ def update_truck(
 @router.delete("/{truck_id}", response_model=dict)
 def delete_truck(
         truck_id: int,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()

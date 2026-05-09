@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from api_key.security import get_api_key
+from auth.security import get_api_key
 
 router = APIRouter()
 

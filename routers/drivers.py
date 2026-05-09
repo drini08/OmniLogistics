@@ -1,15 +1,15 @@
 import sqlite3
 from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends
-from ..models.driver import Driver, DriverCreate, DriverResponse
+from models.driver import Driver, DriverCreate, DriverResponse
 from database import get_db_connection
-from api_key.security import get_current_user
+from auth.security import get_api_key
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[DriverResponse])
-def get_drivers(current_user: str = Depends(get_current_user)):
+def get_drivers(current_user: str = Depends(get_api_key)):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, full_name, license_category, contact_number, is_active FROM drivers")
@@ -29,7 +29,7 @@ def get_drivers(current_user: str = Depends(get_current_user)):
 @router.post("/", response_model=DriverResponse)
 def create_driver(
         driver: DriverCreate,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -55,7 +55,7 @@ def create_driver(
 def update_driver(
         driver_id: int,
         driver: DriverCreate,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -76,7 +76,7 @@ def update_driver(
 @router.delete("/{driver_id}", response_model=dict)
 def delete_driver(
         driver_id: int,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()

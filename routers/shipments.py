@@ -1,15 +1,15 @@
 import sqlite3
 from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends
-from ..models.shipment import ShipmentCreate, ShipmentResponse, ShipmentUpdate
+from models.shipment import ShipmentCreate, ShipmentResponse, ShipmentUpdate
 from database import get_db_connection
-from api_key.security import get_current_user
+from auth.security import get_api_key
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[ShipmentResponse])
-def get_shipments(current_user: str = Depends(get_current_user)):
+def get_shipments(current_user: str = Depends(get_api_key)):
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -38,7 +38,7 @@ def get_shipments(current_user: str = Depends(get_current_user)):
 @router.post("/", response_model=ShipmentResponse)
 def create_shipment(
         shipment: ShipmentCreate,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -96,7 +96,7 @@ def create_shipment(
 def update_shipment_status(
         shipment_id: int,
         new_status: str,
-        current_user: str = Depends(get_current_user)
+        current_user: str = Depends(get_api_key)
 ):
     conn = get_db_connection()
     cursor = conn.cursor()
