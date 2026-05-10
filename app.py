@@ -3,551 +3,1697 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import warnings
-
-# --- 1. SETUP & THEME ---
-st.set_page_config(
-    page_title="OMNI Balkan Hub",
-    layout="wide",
-    page_icon="🚛"
-)
+import random
+import threading
+import time
+from datetime import datetime, timedelta
 
 warnings.filterwarnings("ignore")
 
-# --- 2. DATA INITIALIZATION ---
+st.set_page_config(
+    page_title="OMNI Balkan Hub",
+    layout="wide",
+    page_icon="🚛",
+    initial_sidebar_state="expanded"
+)
 
-# DRIVERS DATABASE
-if 'drivers_data' not in st.session_state:
-    st.session_state.drivers_data = pd.DataFrame([
-        {'Driver_ID': 'DRV-001', 'Driver': 'Dragan P.'},
-        {'Driver_ID': 'DRV-002', 'Driver': 'Amar H.'},
-        {'Driver_ID': 'DRV-003', 'Driver': 'Luka V.'},
-        {'Driver_ID': 'DRV-004', 'Driver': 'Edin D.'},
-        {'Driver_ID': 'DRV-005', 'Driver': 'Bekim S.'}
-    ])
-
-# TRUCKS DATABASE
-if 'fleet_data' not in st.session_state:
-    st.session_state.fleet_data = pd.DataFrame([
-        {
-            'Truck_ID': 'PR-102-AL',
-            'Driver_ID': 'DRV-001',
-            'City': 'Pristina',
-            'lat': 42.66,
-            'lon': 21.16,
-            'Status': 'Active',
-            'Fuel': 85,
-            'Route': 'Prishtina -> Belgrade',
-            'ETD': '14:00',
-            'Actual': '13:55'
-        },
-        {
-            'Truck_ID': 'BG-550-TX',
-            'Driver_ID': 'DRV-002',
-            'City': 'Belgrade',
-            'lat': 44.78,
-            'lon': 20.44,
-            'Status': 'Active',
-            'Fuel': 42,
-            'Route': 'Belgrade -> Skopje',
-            'ETD': '18:30',
-            'Actual': '18:45'
-        },
-        {
-            'Truck_ID': 'ZG-991-HR',
-            'Driver_ID': 'DRV-003',
-            'City': 'Zagreb',
-            'lat': 45.81,
-            'lon': 15.98,
-            'Status': 'Maintenance',
-            'Fuel': 91,
-            'Route': 'Zagreb -> Sarajevo',
-            'ETD': '12:00',
-            'Actual': '12:05'
-        },
-        {
-            'Truck_ID': 'SJ-442-BA',
-            'Driver_ID': 'DRV-004',
-            'City': 'Sarajevo',
-            'lat': 43.85,
-            'lon': 18.41,
-            'Status': 'Active',
-            'Fuel': 12,
-            'Route': 'Sarajevo -> Tirana',
-            'ETD': '09:00',
-            'Actual': '09:30'
-        },
-        {
-            'Truck_ID': 'SK-110-MK',
-            'Driver_ID': 'DRV-005',
-            'City': 'Skopje',
-            'lat': 41.99,
-            'lon': 21.42,
-            'Status': 'Active',
-            'Fuel': 77,
-            'Route': 'Skopje -> Prishtina',
-            'ETD': '11:00',
-            'Actual': '10:50'
-        }
-    ])
-
-# --- 3. CUSTOM CSS ---
 st.markdown("""
 <style>
+/* DARK THEME - Complete Redesign */
 
-.stApp {
-    background-color: #f8fafc !important;
+:root {
+    --bg-dark: #0f1419;
+    --bg-secondary: #1a1f2e;
+    --bg-tertiary: #252d3d;
+    --text-primary: #e8eef5;
+    --text-secondary: #b4bcc8;
+    --text-tertiary: #8a92a4;
+    --accent: #f97316;
+    --accent-light: #fb923c;
+    --success: #22c55e;
+    --warning: #f97316;
+    --danger: #ef4444;
+    --border: #3d4554;
 }
 
-h1, h2, h3, h4, p, label, [data-testid="stMetricValue"] {
-    color: #0f172a !important;
+* {
+    color: var(--text-primary) !important;
+}
+
+.stApp {
+    background-color: var(--bg-dark) !important;
+}
+
+html, body {
+    background-color: var(--bg-dark) !important;
+}
+
+[data-testid="stAppViewContainer"] {
+    background-color: var(--bg-dark) !important;
+}
+
+[data-testid="stHeader"] {
+    background-color: var(--bg-secondary) !important;
+    border-bottom: 1px solid var(--border) !important;
 }
 
 [data-testid="stSidebar"] {
-    background-color: #ffffff !important;
-    border-right: 1px solid #e2e8f0;
+    background-color: var(--bg-secondary) !important;
+    border-right: 1px solid var(--border) !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+    padding: 20px 15px !important;
 }
 
 [data-testid="stSidebar"] * {
-    color: #1e293b !important;
+    color: var(--text-primary) !important;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    background-color: var(--bg-secondary) !important;
+    border-bottom: 2px solid var(--border) !important;
+}
+
+.stTabs [aria-selected="true"] {
+    border-bottom: 3px solid var(--accent) !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}
+
+p, label, span {
+    color: var(--text-secondary) !important;
 }
 
 .stButton>button {
-    background-color: #f97316 !important;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%) !important;
     color: white !important;
-    width: 100%;
-    border: none;
-    font-weight: bold;
-    height: 3.5em;
+    width: 100% !important;
+    border: none !important;
+    font-weight: 600 !important;
+    height: 3.5em !important;
+    transition: all 0.3s ease !important;
+    border-radius: 10px !important;
 }
 
+.stButton>button:hover {
+    background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4) !important;
+}
+
+.stButton>button:active {
+    transform: translateY(0) !important;
+}
+
+/* METRIC CARDS */
+[data-testid="stMetric"] {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    border-left: 4px solid var(--accent) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-testid="stMetricValue"] {
+    color: var(--accent) !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--text-secondary) !important;
+}
+
+/* CUSTOM METRIC CARDS */
+.metric-card {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    margin-bottom: 12px !important;
+    border-left: 4px solid var(--accent) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.metric-card strong {
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+}
+
+.metric-card p {
+    color: var(--text-secondary) !important;
+}
+
+/* STATUS STYLES */
+.status-active {
+    color: var(--success) !important;
+    font-weight: 700 !important;
+}
+
+.status-maintenance {
+    color: var(--warning) !important;
+    font-weight: 700 !important;
+}
+
+.status-inactive {
+    color: var(--danger) !important;
+    font-weight: 700 !important;
+}
+
+/* AUDIT BOX */
 .audit-box {
-    background-color: #0f172a;
-    color: #22c55e;
-    padding: 20px;
-    border-radius: 8px;
-    font-family: monospace;
-    border-left: 5px solid #f97316;
-    margin-bottom: 12px;
-    line-height: 1.6;
+    background-color: #1a1f2e !important;
+    color: var(--success) !important;
+    padding: 20px !important;
+    border-radius: 8px !important;
+    font-family: 'Courier New', monospace !important;
+    border-left: 5px solid var(--accent) !important;
+    margin-bottom: 12px !important;
+    line-height: 1.6 !important;
+    border: 1px solid var(--border) !important;
+}
+
+/* BADGES */
+.badge {
+    display: inline-block !important;
+    padding: 6px 14px !important;
+    border-radius: 20px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    margin-right: 8px !important;
+    margin-bottom: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+.badge-green {
+    background-color: rgba(34, 197, 94, 0.2) !important;
+    color: var(--success) !important;
+    border: 1px solid var(--success) !important;
+}
+
+.badge-orange {
+    background-color: rgba(249, 115, 22, 0.2) !important;
+    color: var(--warning) !important;
+    border: 1px solid var(--warning) !important;
+}
+
+.badge-red {
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    color: var(--danger) !important;
+    border: 1px solid var(--danger) !important;
+}
+
+.badge-blue {
+    background-color: rgba(59, 130, 246, 0.2) !important;
+    color: #60a5fa !important;
+    border: 1px solid #60a5fa !important;
+}
+
+/* INPUT FIELDS */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+}
+
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stDateInput"] input:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2) !important;
+}
+
+/* SELECTBOX */
+[data-testid="stSelectbox"] > div {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+}
+
+[data-testid="stSelectbox"] > div > div {
+    color: var(--text-primary) !important;
+}
+
+/* DATAFRAME */
+[data-testid="stDataFrame"] {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+}
+
+[data-testid="stDataFrame"] table {
+    background-color: var(--bg-tertiary) !important;
+}
+
+[data-testid="stDataFrame"] thead {
+    background-color: var(--bg-secondary) !important;
+}
+
+[data-testid="stDataFrame"] thead th {
+    color: var(--text-primary) !important;
+    border-bottom: 2px solid var(--border) !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stDataFrame"] tbody td {
+    color: var(--text-secondary) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+[data-testid="stDataFrame"] tbody tr:hover {
+    background-color: var(--bg-tertiary) !important;
+}
+
+/* PROGRESS BAR */
+.stProgress > div > div {
+    background-color: var(--accent) !important;
+}
+
+/* DIVIDER */
+.stDivider {
+    border-color: var(--border) !important;
+}
+
+/* RADIO BUTTONS */
+[data-testid="stRadio"] > div {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+}
+
+[data-testid="stRadio"] label {
+    color: var(--text-primary) !important;
+    margin-bottom: 8px !important;
+}
+
+/* EXPANDER */
+[data-testid="stExpander"] {
+    border: 1px solid var(--border) !important;
+    background-color: var(--bg-tertiary) !important;
+    border-radius: 8px !important;
+}
+
+/* INFO/WARNING/ERROR BOXES */
+.stInfo {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
+    color: #60a5fa !important;
+    border-radius: 8px !important;
+}
+
+.stWarning {
+    background-color: rgba(249, 115, 22, 0.15) !important;
+    border: 1px solid rgba(249, 115, 22, 0.3) !important;
+    color: var(--warning) !important;
+    border-radius: 8px !important;
+}
+
+.stError {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    color: var(--danger) !important;
+    border-radius: 8px !important;
+}
+
+.stSuccess {
+    background-color: rgba(34, 197, 94, 0.15) !important;
+    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+    color: var(--success) !important;
+    border-radius: 8px !important;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# --- 4. SIDEBAR NAVIGATION ---
+BALKAN_CITIES = {
+    'Pristina': (42.66, 21.16),
+    'Belgrade': (44.78, 20.44),
+    'Skopje': (41.99, 21.42),
+    'Tirana': (41.32, 19.81),
+    'Sarajevo': (43.85, 18.41),
+    'Zagreb': (45.81, 15.98),
+    'Split': (43.51, 16.44),
+    'Niš': (43.32, 21.89),
+    'Podgorica': (42.43, 19.26),
+    'Ljubljana': (46.06, 14.51)
+}
+
+if 'drivers_data' not in st.session_state:
+    st.session_state.drivers_data = pd.DataFrame([
+        {
+            'Driver_ID': 'DRV-001',
+            'Driver': 'Dragan Marković',
+            'City': 'Belgrade',
+            'Years_Exp': 12,
+            'Safety_Score': 95,
+            'Deliveries': 342,
+            'Accidents': 0,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+381 60 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-002',
+            'Driver': 'Amar Hadžić',
+            'City': 'Sarajevo',
+            'Years_Exp': 8,
+            'Safety_Score': 88,
+            'Deliveries': 256,
+            'Accidents': 1,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+387 61 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-003',
+            'Driver': 'Luka Vuković',
+            'City': 'Zagreb',
+            'Years_Exp': 15,
+            'Safety_Score': 92,
+            'Deliveries': 478,
+            'Accidents': 0,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+385 91 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-004',
+            'Driver': 'Edin Džamić',
+            'City': 'Skopje',
+            'Years_Exp': 6,
+            'Safety_Score': 82,
+            'Deliveries': 145,
+            'Accidents': 2,
+            'License': 'C',
+            'Driver_Status': 'On Leave',
+            'Contact': '+389 70 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-005',
+            'Driver': 'Bekim Shala',
+            'City': 'Pristina',
+            'Years_Exp': 10,
+            'Safety_Score': 90,
+            'Deliveries': 298,
+            'Accidents': 0,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+383 44 1234567'
+        }
+    ])
+
+if 'fleet_data' not in st.session_state:
+    st.session_state.fleet_data = pd.DataFrame([
+        {
+            'Truck_ID': 'PR-102-AL',
+            'Driver_ID': 'DRV-001',
+            'Model': 'Volvo FH16',
+            'City': 'Pristina',
+            'lat': 42.66,
+            'lon': 21.16,
+            'Status': 'Active',
+            'Fuel': 85,
+            'Route': 'Pristina → Belgrade',
+            'ETD': '14:00',
+            'Actual': '13:55',
+            'Mileage': 125430,
+            'Speed': 85,
+            'Engine_Health': 95,
+            'Tire_Condition': 92,
+            'Next_Service': '2025-06-15',
+            'Insurance_Exp': '2026-12-31',
+            'Max_Capacity': 25000
+        },
+        {
+            'Truck_ID': 'BG-550-TX',
+            'Driver_ID': 'DRV-002',
+            'Model': 'Mercedes Actros',
+            'City': 'Belgrade',
+            'lat': 44.78,
+            'lon': 20.44,
+            'Status': 'Active',
+            'Fuel': 42,
+            'Route': 'Belgrade → Skopje',
+            'ETD': '18:30',
+            'Actual': '18:45',
+            'Mileage': 89650,
+            'Speed': 78,
+            'Engine_Health': 88,
+            'Tire_Condition': 85,
+            'Next_Service': '2025-05-20',
+            'Insurance_Exp': '2025-11-30',
+            'Max_Capacity': 24000
+        },
+        {
+            'Truck_ID': 'ZG-991-HR',
+            'Driver_ID': 'DRV-003',
+            'Model': 'Scania R580',
+            'City': 'Zagreb',
+            'lat': 45.81,
+            'lon': 15.98,
+            'Status': 'Maintenance',
+            'Fuel': 91,
+            'Route': 'Zagreb → Split',
+            'ETD': '12:00',
+            'Actual': '12:05',
+            'Mileage': 201230,
+            'Speed': 0,
+            'Engine_Health': 76,
+            'Tire_Condition': 68,
+            'Next_Service': '2025-04-10',
+            'Insurance_Exp': '2026-03-15',
+            'Max_Capacity': 26000
+        },
+        {
+            'Truck_ID': 'SJ-442-BA',
+            'Driver_ID': 'DRV-004',
+            'Model': 'MAN TGX',
+            'City': 'Sarajevo',
+            'lat': 43.85,
+            'lon': 18.41,
+            'Status': 'Low Fuel',
+            'Fuel': 12,
+            'Route': 'Sarajevo → Tirana',
+            'ETD': '09:00',
+            'Actual': '09:30',
+            'Mileage': 154890,
+            'Speed': 92,
+            'Engine_Health': 91,
+            'Tire_Condition': 88,
+            'Next_Service': '2025-07-01',
+            'Insurance_Exp': '2026-08-20',
+            'Max_Capacity': 23500
+        },
+        {
+            'Truck_ID': 'SK-110-MK',
+            'Driver_ID': 'DRV-005',
+            'Model': 'Iveco Stralis',
+            'City': 'Skopje',
+            'lat': 41.99,
+            'lon': 21.42,
+            'Status': 'Active',
+            'Fuel': 77,
+            'Route': 'Skopje → Pristina',
+            'ETD': '11:00',
+            'Actual': '10:50',
+            'Mileage': 98760,
+            'Speed': 72,
+            'Engine_Health': 89,
+            'Tire_Condition': 91,
+            'Next_Service': '2025-05-28',
+            'Insurance_Exp': '2026-02-14',
+            'Max_Capacity': 22000
+        }
+    ])
+
+if 'shipments_data' not in st.session_state:
+    st.session_state.shipments_data = pd.DataFrame([
+        {
+            'Shipment_ID': 'SHP-001',
+            'Truck_ID': 'PR-102-AL',
+            'Origin': 'Pristina',
+            'Destination': 'Belgrade',
+            'Cargo_Type': 'Electronics',
+            'Weight': 2500,
+            'Status': 'In Transit',
+            'Progress': 65,
+            'Priority': 'High',
+            'Created': '2025-01-10 08:30',
+            'Estimated_Delivery': '2025-01-11 14:00'
+        },
+        {
+            'Shipment_ID': 'SHP-002',
+            'Truck_ID': 'BG-550-TX',
+            'Origin': 'Belgrade',
+            'Destination': 'Skopje',
+            'Cargo_Type': 'Food Products',
+            'Weight': 5000,
+            'Status': 'Pending',
+            'Progress': 0,
+            'Priority': 'Medium',
+            'Created': '2025-01-10 09:15',
+            'Estimated_Delivery': '2025-01-12 10:00'
+        },
+        {
+            'Shipment_ID': 'SHP-003',
+            'Truck_ID': 'ZG-991-HR',
+            'Origin': 'Zagreb',
+            'Destination': 'Split',
+            'Cargo_Type': 'Machinery',
+            'Weight': 8500,
+            'Status': 'Delayed',
+            'Progress': 40,
+            'Priority': 'High',
+            'Created': '2025-01-09 14:20',
+            'Estimated_Delivery': '2025-01-11 16:00'
+        },
+        {
+            'Shipment_ID': 'SHP-004',
+            'Truck_ID': 'SJ-442-BA',
+            'Origin': 'Sarajevo',
+            'Destination': 'Tirana',
+            'Cargo_Type': 'Textiles',
+            'Weight': 3200,
+            'Status': 'In Transit',
+            'Progress': 35,
+            'Priority': 'Low',
+            'Created': '2025-01-10 06:00',
+            'Estimated_Delivery': '2025-01-12 18:00'
+        },
+        {
+            'Shipment_ID': 'SHP-005',
+            'Truck_ID': 'SK-110-MK',
+            'Origin': 'Skopje',
+            'Destination': 'Pristina',
+            'Cargo_Type': 'Raw Materials',
+            'Weight': 6800,
+            'Status': 'Delivered',
+            'Progress': 100,
+            'Priority': 'Medium',
+            'Created': '2025-01-09 10:30',
+            'Estimated_Delivery': '2025-01-10 16:30'
+        },
+        {
+            'Shipment_ID': 'SHP-006',
+            'Truck_ID': 'PR-102-AL',
+            'Origin': 'Belgrade',
+            'Destination': 'Niš',
+            'Cargo_Type': 'Automotive Parts',
+            'Weight': 4100,
+            'Status': 'Pending',
+            'Progress': 0,
+            'Priority': 'High',
+            'Created': '2025-01-10 07:45',
+            'Estimated_Delivery': '2025-01-11 18:00'
+        }
+    ])
+
+if 'maintenance_data' not in st.session_state:
+    st.session_state.maintenance_data = pd.DataFrame([
+        {
+            'Truck_ID': 'PR-102-AL',
+            'Service_Type': 'Oil Change',
+            'Date': '2025-01-05',
+            'Cost': 250,
+            'Status': 'Completed',
+            'Mileage': 125200,
+            'Notes': 'Routine maintenance'
+        },
+        {
+            'Truck_ID': 'BG-550-TX',
+            'Service_Type': 'Tire Replacement',
+            'Date': '2025-01-03',
+            'Cost': 1200,
+            'Status': 'Completed',
+            'Mileage': 89100,
+            'Notes': 'All 4 tires replaced'
+        },
+        {
+            'Truck_ID': 'ZG-991-HR',
+            'Service_Type': 'Engine Diagnostic',
+            'Date': '2025-01-10',
+            'Cost': 450,
+            'Status': 'In Progress',
+            'Mileage': 201200,
+            'Notes': 'Engine health monitoring'
+        },
+        {
+            'Truck_ID': 'SJ-442-BA',
+            'Service_Type': 'Brake Inspection',
+            'Date': '2024-12-28',
+            'Cost': 350,
+            'Status': 'Completed',
+            'Mileage': 154500,
+            'Notes': 'Front and rear brakes checked'
+        },
+        {
+            'Truck_ID': 'SK-110-MK',
+            'Service_Type': 'Filter Replacement',
+            'Date': '2025-01-08',
+            'Cost': 180,
+            'Status': 'Completed',
+            'Mileage': 98500,
+            'Notes': 'Air and fuel filters replaced'
+        }
+    ])
+
+def simulate_live_data():
+    while True:
+        time.sleep(5)
+        try:
+            for idx in st.session_state.fleet_data.index:
+                if st.session_state.fleet_data.loc[idx, 'Status'] in ['Active', 'Low Fuel']:
+                    st.session_state.fleet_data.loc[idx, 'lat'] += random.uniform(-0.02, 0.02)
+                    st.session_state.fleet_data.loc[idx, 'lon'] += random.uniform(-0.02, 0.02)
+                    st.session_state.fleet_data.loc[idx, 'Fuel'] = max(5, st.session_state.fleet_data.loc[idx, 'Fuel'] - random.uniform(0.5, 2))
+                    st.session_state.fleet_data.loc[idx, 'Speed'] = random.randint(40, 120)
+                    st.session_state.fleet_data.loc[idx, 'Mileage'] += random.uniform(0.5, 3)
+                    
+                    if st.session_state.fleet_data.loc[idx, 'Fuel'] < 15 and st.session_state.fleet_data.loc[idx, 'Status'] != 'Low Fuel':
+                        st.session_state.fleet_data.loc[idx, 'Status'] = 'Low Fuel'
+                    elif st.session_state.fleet_data.loc[idx, 'Fuel'] > 30 and st.session_state.fleet_data.loc[idx, 'Status'] == 'Low Fuel':
+                        st.session_state.fleet_data.loc[idx, 'Status'] = 'Active'
+            
+            for idx in st.session_state.shipments_data.index:
+                if st.session_state.shipments_data.loc[idx, 'Status'] == 'In Transit':
+                    st.session_state.shipments_data.loc[idx, 'Progress'] = min(100, st.session_state.shipments_data.loc[idx, 'Progress'] + random.uniform(0.5, 3))
+                    if st.session_state.shipments_data.loc[idx, 'Progress'] >= 100:
+                        st.session_state.shipments_data.loc[idx, 'Status'] = 'Delivered'
+                    elif random.random() < 0.02:
+                        st.session_state.shipments_data.loc[idx, 'Status'] = 'Delayed'
+        except:
+            pass
+
+if 'simulation_started' not in st.session_state:
+    simulation_thread = threading.Thread(target=simulate_live_data, daemon=True)
+    simulation_thread.start()
+    st.session_state.simulation_started = True
+
 with st.sidebar:
-
-    st.markdown(
-        "<h1 style='color: #f97316;'>OMNI</h1>",
-        unsafe_allow_html=True
-    )
-
+    st.markdown("<h2 style='color: #f97316; margin-bottom: 10px;'>🚚 OMNI</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #8a92a4; margin-bottom: 20px; font-size: 0.9rem;'>Balkan Fleet Hub</p>", unsafe_allow_html=True)
+    
+    st.divider()
+    
     page = st.radio(
-        "SYSTEM MENU",
+        "📍 NAVIGATION",
         [
             "Dashboard",
+            "Trucks",
             "Drivers",
-            "Fleet Registry",
-            "Audits",
+            "Shipments",
+            "Maintenance",
             "Analytics"
-        ]
+        ],
+        label_visibility="collapsed"
     )
-
+    
     st.divider()
+    
+    active_trucks = len(st.session_state.fleet_data[st.session_state.fleet_data['Status'] == 'Active'])
+    in_transit = len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'In Transit'])
+    
+    st.markdown(f"""
+    <div class="metric-card">
+    <h4 style='margin: 0 0 12px 0; color: #f97316;'>⚡ Live Status</h4>
+    <p style='margin: 6px 0; color: #22c55e; font-weight: 600;'>✓ Active: {active_trucks}/{len(st.session_state.fleet_data)}</p>
+    <p style='margin: 6px 0; color: #60a5fa; font-weight: 600;'>📦 In Transit: {in_transit}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.info("🟢 OMNI v2.0 | Real-time Active", icon="ℹ️")
 
-    st.info("OMNI V1.0 | Regional Node Active")
-
-# --- MERGED DATA ---
 merged_data = st.session_state.fleet_data.merge(
     st.session_state.drivers_data,
     on="Driver_ID",
     how="left"
 )
-# --- 5. DASHBOARD ---
+
 if page == "Dashboard":
-
-    st.header("Operations Control")
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric("Active Assets", len(st.session_state.fleet_data))
-    c2.metric("Fleet Efficiency", "94%")
-    c3.metric(
-        "Critical Alerts",
-        f"{len(st.session_state.fleet_data[st.session_state.fleet_data['Fuel'] < 20])} Low Fuel"
-    )
-
-    st.subheader("Live GPS Truck Tracking")
-
-    # CREATE MAP
+    st.markdown("<h1 style='margin-bottom: 30px;'>📊 Operations Control Center</h1>", unsafe_allow_html=True)
+    
+    c1, c2, c3, c4 = st.columns(4)
+    
+    with c1:
+        st.metric("🚚 Active Trucks", len(st.session_state.fleet_data[st.session_state.fleet_data['Status'] == 'Active']))
+    with c2:
+        st.metric("📦 In Transit", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'In Transit']))
+    with c3:
+        st.metric("✅ Delivered", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'Delivered']))
+    with c4:
+        st.metric("⚠️ Critical", len(st.session_state.fleet_data[st.session_state.fleet_data['Fuel'] < 20]))
+    
+    st.markdown("<h2 style='margin-top: 30px; margin-bottom: 20px;'>🗺️ Live GPS Fleet Tracking</h2>", unsafe_allow_html=True)
+    
     fig = go.Figure()
-
-    # ADD EACH TRUCK AS GPS POINT
+    
     for _, row in merged_data.iterrows():
-
+        color_map = {'Active': 'green', 'Maintenance': 'orange', 'Low Fuel': 'red', 'Inactive': 'gray'}
+        marker_color = color_map.get(row['Status'], 'blue')
+        
         fig.add_trace(
             go.Scattermapbox(
                 lat=[row["lat"]],
                 lon=[row["lon"]],
                 mode="markers+text",
-
-                # TRUCK LABEL ON MAP
                 text=[row["Truck_ID"]],
                 textposition="top center",
-
-                # RED GPS CIRCLE
-                marker=go.scattermapbox.Marker(
-                    size=22,
-                    color="red",
-                    opacity=0.9
-                ),
-
-                # POPUP INFO
-                hovertemplate=
-                f"""
-                <b>Truck:</b> {row['Truck_ID']}<br>
-                <b>Driver:</b> {row['Driver']}<br>
-                <b>Route:</b> {row['Route']}<br>
-                <b>Fuel:</b> {row['Fuel']}%<br>
-                <b>Status:</b> {row['Status']}<br>
-                <b>City:</b> {row['City']}<br>
-                <b>Latitude:</b> {row['lat']}<br>
-                <b>Longitude:</b> {row['lon']}<br>
+                marker=go.scattermapbox.Marker(size=16, color=marker_color, opacity=0.9),
+                hovertemplate=f"""
+                <b style='color: #fff;'>Truck:</b> {row['Truck_ID']}<br>
+                <b style='color: #fff;'>Driver:</b> {row['Driver']}<br>
+                <b style='color: #fff;'>Route:</b> {row['Route']}<br>
+                <b style='color: #fff;'>Fuel:</b> {row['Fuel']:.0f}%<br>
+                <b style='color: #fff;'>Speed:</b> {row['Speed']} km/h<br>
+                <b style='color: #fff;'>Status:</b> {row['Status']}<br>
                 <extra></extra>
                 """
             )
         )
-
-    # MAP SETTINGS
+    
     fig.update_layout(
-        mapbox=dict(
-            style="open-street-map",
-
-            # CENTER MAP
-            center=dict(
-                lat=44.0,
-                lon=20.5
-            ),
-
-            zoom=5
-        ),
-
-        margin=dict(
-            l=0,
-            r=0,
-            t=0,
-            b=0
-        ),
-
-        height=750,
-        showlegend=False
+        mapbox=dict(style="carto-positron", center=dict(lat=44.0, lon=20.5), zoom=5),
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=600,
+        showlegend=False,
+        paper_bgcolor='#1a1f2e',
+        plot_bgcolor='#1a1f2e',
     )
-
-    # DISPLAY MAP
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-# --- 6. DRIVERS PORTAL ---
-elif page == "Drivers":
-
-    st.header("Drivers Portal")
-
-    driver_ids = st.session_state.drivers_data['Driver_ID'].unique()
-
-    selected_driver = st.selectbox(
-        "Select Driver ID",
-        driver_ids
-    )
-
-    driver_info = st.session_state.drivers_data[
-        st.session_state.drivers_data['Driver_ID'] == selected_driver
-    ]
-
-    st.subheader("Driver Information")
-
-    st.dataframe(
-        driver_info,
-        use_container_width=True
-    )
-
-    st.subheader("Assigned Trucks")
-
-    driver_trucks = merged_data[
-        merged_data['Driver_ID'] == selected_driver
-    ]
-
-    if not driver_trucks.empty:
-
-        st.dataframe(
-            driver_trucks[
-                [
-                    'Truck_ID',
-                    'Driver',
-                    'Route',
-                    'Fuel',
-                    'City',
-                    'Status',
-                    'ETD',
-                    'Actual'
-                ]
-            ],
-            use_container_width=True
-        )
-
-    else:
-        st.warning("No trucks assigned to this driver.")
-
-# --- 7. TRUCKS PORTAL ---
-elif page == "Fleet Registry":
-
-    st.header("Trucks Portal")
-
-    st.subheader("Fleet Database")
-
-    st.dataframe(
-        merged_data[
-            [
-                'Truck_ID',
-                'Driver',
-                'Route',
-                'Fuel',
-                'City',
-                'Status',
-                'ETD',
-                'Actual'
-            ]
-        ],
-        use_container_width=True
-    )
-
-    st.divider()
-
-    col1, col2 = st.columns(2)
-
-    # ADD NEW TRUCK
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2, col3 = st.columns(3)
+    
     with col1:
-
-        st.subheader("Add Truck")
-
-        with st.form("add_truck_form"):
-
-            new_truck_id = st.text_input("Truck ID")
-
-            driver_options = st.session_state.drivers_data[
-                ['Driver_ID', 'Driver']
-            ]
-
-            driver_selection = st.selectbox(
-                "Assign Driver",
-                driver_options.apply(
-                    lambda x: f"{x['Driver_ID']} - {x['Driver']}",
-                    axis=1
-                )
-            )
-
-            selected_driver_id = driver_selection.split(" - ")[0]
-
-            new_city = st.selectbox(
-                "City",
-                [
-                    "Pristina",
-                    "Belgrade",
-                    "Skopje",
-                    "Tirana",
-                    "Sarajevo",
-                    "Zagreb"
-                ]
-            )
-
-            new_route = st.text_input("Route")
-            new_fuel = st.slider("Fuel Level", 0, 100, 100)
-
-            new_status = st.selectbox(
-                "Status",
-                [
-                    "Active",
-                    "Maintenance",
-                    "Inactive"
-                ]
-            )
-
-            new_etd = st.text_input("ETD", "00:00")
-            new_actual = st.text_input("Actual", "00:00")
-
-            submit_truck = st.form_submit_button("REGISTER TRUCK")
-
-            if submit_truck:
-
-                coords = {
-                    "Pristina": (42.66, 21.16),
-                    "Belgrade": (44.78, 20.44),
-                    "Skopje": (41.99, 21.42),
-                    "Tirana": (41.32, 19.81),
-                    "Sarajevo": (43.85, 18.41),
-                    "Zagreb": (45.81, 15.98)
-                }
-
-                lat, lon = coords[new_city]
-
-                new_row = pd.DataFrame([
-                    {
-                        'Truck_ID': new_truck_id,
-                        'Driver_ID': selected_driver_id,
-                        'City': new_city,
-                        'lat': lat,
-                        'lon': lon,
-                        'Status': new_status,
-                        'Fuel': new_fuel,
-                        'Route': new_route,
-                        'ETD': new_etd,
-                        'Actual': new_actual
-                    }
-                ])
-
-                st.session_state.fleet_data = pd.concat(
-                    [
-                        st.session_state.fleet_data,
-                        new_row
-                    ],
-                    ignore_index=True
-                )
-
-                st.success("Truck added successfully.")
-
-                st.rerun()
-
-    # DELETE TRUCK
+        st.markdown("<h3 style='margin-bottom: 15px;'>📋 Recent Shipments</h3>", unsafe_allow_html=True)
+        recent_ships = st.session_state.shipments_data.sort_values('Created', ascending=False).head(5)[['Shipment_ID', 'Origin', 'Destination', 'Status', 'Progress']]
+        st.dataframe(recent_ships, use_container_width=True, hide_index=True)
+    
     with col2:
+        st.markdown("<h3 style='margin-bottom: 15px;'>🚨 Upcoming Maintenance</h3>", unsafe_allow_html=True)
+        maint = st.session_state.fleet_data[['Truck_ID', 'Next_Service', 'Engine_Health']].sort_values('Engine_Health').head(5)
+        st.dataframe(maint, use_container_width=True, hide_index=True)
+    
+    with col3:
+        st.markdown("<h3 style='margin-bottom: 15px;'>📊 Fleet Status</h3>", unsafe_allow_html=True)
+        status_counts = st.session_state.fleet_data['Status'].value_counts()
+        fig_pie = px.pie(values=status_counts.values, names=status_counts.index, color_discrete_sequence=['#22c55e', '#f97316', '#ef4444', '#64748b'])
+        fig_pie.update_layout(height=350, paper_bgcolor='#1a1f2e', font=dict(color='#e8eef5'))
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-        st.subheader("Delete Truck")
+elif page == "Trucks":
+    st.markdown("<h1 style='margin-bottom: 30px;'>🚚 Fleet Management</h1>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.markdown("<h3 style='margin-bottom: 15px;'>Fleet Registry</h3>", unsafe_allow_html=True)
+        selected_truck = st.selectbox("Select Truck", merged_data['Truck_ID'].unique(), label_visibility="collapsed")
+        truck_data = merged_data[merged_data['Truck_ID'] == selected_truck].iloc[0]
+    
+    with col2:
+        st.markdown(f"<h3 style='margin-bottom: 15px;'>📋 Details - {selected_truck}</h3>", unsafe_allow_html=True)
+        
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("Model", truck_data['Model'])
+            st.metric("Mileage", f"{truck_data['Mileage']:,.0f} km")
+        with c2:
+            st.metric("Fuel", f"{truck_data['Fuel']:.0f}%")
+            st.metric("Speed", f"{truck_data['Speed']} km/h")
+        with c3:
+            st.metric("Engine", f"{truck_data['Engine_Health']}%")
+            st.metric("Tires", f"{truck_data['Tire_Condition']}%")
+        with c4:
+            st.metric("Driver", truck_data['Driver'][:20])
+            st.metric("Status", truck_data['Status'])
+        
+        st.divider()
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Capacity", f"{truck_data['Max_Capacity']:,.0f} kg")
+        with c2:
+            st.metric("Insurance", truck_data['Insurance_Exp'])
+        with c3:
+            st.metric("Next Service", truck_data['Next_Service'])
+        
+        st.divider()
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("<h4 style='margin-bottom: 15px;'>📦 Active Shipments</h4>", unsafe_allow_html=True)
+            shipments = st.session_state.shipments_data[st.session_state.shipments_data['Truck_ID'] == selected_truck]
+            if not shipments.empty:
+                for _, ship in shipments.iterrows():
+                    status_color = 'green' if ship['Status'] == 'Delivered' else 'orange' if ship['Status'] == 'Delayed' else 'blue'
+                    st.markdown(f"""
+                    <div class="metric-card">
+                    <p style='margin: 0 0 5px 0; color: #f97316; font-weight: 600;'>📦 {ship['Shipment_ID']}</p>
+                    <p style='margin: 0 0 8px 0; color: #b4bcc8;'>{ship['Origin']} → {ship['Destination']}</p>
+                    <span class="badge badge-{status_color}">{ship['Status']}</span>
+                    <p style='margin: 8px 0 0 0; color: #8a92a4; font-size: 0.85rem;'>Progress: {ship['Progress']:.0f}%</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No active shipments")
+        
+        with col2:
+            st.markdown("<h4 style='margin-bottom: 15px;'>🔧 Service History</h4>", unsafe_allow_html=True)
+            services = st.session_state.maintenance_data[st.session_state.maintenance_data['Truck_ID'] == selected_truck]
+            if not services.empty:
+                st.dataframe(services[['Service_Type', 'Date', 'Cost', 'Status']].tail(5), use_container_width=True, hide_index=True)
+            else:
+                st.info("No service records")
 
-        delete_target = st.selectbox(
-            "Select Truck ID",
-            merged_data['Truck_ID'].unique()
-        )
-
-        if st.button("DELETE TRUCK"):
-
-            st.session_state.fleet_data = st.session_state.fleet_data[
-                st.session_state.fleet_data['Truck_ID'] != delete_target
-            ]
-
-            st.warning(f"{delete_target} deleted.")
-
-            st.rerun()
-
-# --- 8. AUDITS ---
-elif page == "Audits":
-
-    st.header("Operational Integrity Log")
-
-    for _, row in merged_data.iterrows():
-
-        is_ontime = row['Actual'] <= row['ETD']
-
-        status_text = "ON TIME" if is_ontime else "DELAYED"
-
-        status_color = "#22c55e" if is_ontime else "#ef4444"
-
-        st.markdown(
-            f"""
-            <div class="audit-box">
-            [NODE_LOG]: {row['Truck_ID']} |
-            OP: {row['Driver']}
-            <br>
-            ROUTE: {row['Route']}
-            <br>
-            STATUS:
-            <span style="color:{status_color}; font-weight:bold;">
-            {status_text}
-            </span>
+elif page == "Drivers":
+    st.markdown("<h1 style='margin-bottom: 30px;'>👥 Driver Management</h1>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("👥 Total Drivers", len(st.session_state.drivers_data))
+    with col2:
+        active = len(st.session_state.drivers_data[st.session_state.drivers_data['Driver_Status'] == 'Active'])
+        st.metric("✓ Active", active)
+    with col3:
+        avg_score = st.session_state.drivers_data['Safety_Score'].mean()
+        st.metric("Avg Safety Score", f"{avg_score:.0f}%")
+    
+    st.markdown("<h2 style='margin-top: 30px; margin-bottom: 20px;'>👤 Driver Profiles</h2>", unsafe_allow_html=True)
+    
+    for _, driver in st.session_state.drivers_data.iterrows():
+        col1, col2 = st.columns([0.5, 2])
+        
+        with col1:
+            st.markdown(f"<div style='font-size: 2.5rem; text-align: center;'>👤</div>", unsafe_allow_html=True)
+        
+        with col2:
+            safety_color = 'green' if driver['Safety_Score'] >= 90 else 'orange' if driver['Safety_Score'] >= 80 else 'red'
+            status_color = 'green' if driver['Driver_Status'] == 'Active' else 'orange'
+            st.markdown(f"""
+            <div class="metric-card">
+            <h4 style='margin: 0 0 5px 0; color: #e8eef5;'>{driver['Driver']}</h4>
+            <p style='margin: 0 0 12px 0; color: #8a92a4; font-size: 0.85rem;'>{driver['Driver_ID']} | {driver['City']}</p>
+            <p style='margin: 8px 0; color: #b4bcc8;'>📚 Experience: <span style='color: #e8eef5; font-weight: 600;'>{driver['Years_Exp']} years</span> | 📜 License: <span style='color: #e8eef5; font-weight: 600;'>{driver['License']}</span></p>
+            <p style='margin: 8px 0; color: #b4bcc8;'>✅ Deliveries: <span style='color: #22c55e; font-weight: 600;'>{driver['Deliveries']}</span> | ⚠️ Accidents: <span style='color: #ef4444; font-weight: 600;'>{driver['Accidents']}</span></p>
+            <p style='margin: 8px 0; color: #b4bcc8;'>📞 {driver['Contact']}</p>
+            <div style='margin-top: 10px;'>
+                <span class="badge badge-{safety_color}">Safety: {driver['Safety_Score']}%</span>
+                <span class="badge badge-{status_color}">{driver['Driver_Status']}</span>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
+            </div>
+            """, unsafe_allow_html=True)
 
-# --- 9. ANALYTICS ---
+elif page == "Shipments":
+    st.markdown("<h1 style='margin-bottom: 30px;'>📦 Shipment Tracking</h1>", unsafe_allow_html=True)
+    
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("📦 Total", len(st.session_state.shipments_data))
+    with c2:
+        st.metric("🚚 In Transit", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'In Transit']))
+    with c3:
+        st.metric("✅ Delivered", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'Delivered']))
+    with c4:
+        st.metric("🔴 Delayed", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'Delayed']))
+    
+    st.markdown("<h2 style='margin-top: 30px; margin-bottom: 20px;'>📋 Active Shipments</h2>", unsafe_allow_html=True)
+    
+    for _, shipment in st.session_state.shipments_data.iterrows():
+        status_color = {'In Transit': 'blue', 'Delivered': 'green', 'Delayed': 'red', 'Pending': 'orange'}
+        color = status_color.get(shipment['Status'], 'orange')
+        priority_color = 'red' if shipment['Priority'] == 'High' else 'orange' if shipment['Priority'] == 'Medium' else 'green'
+        
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4 style='margin: 0 0 8px 0; color: #f97316;'>{shipment['Shipment_ID']}</h4>
+        <p style='margin: 8px 0; color: #b4bcc8;'>📍 {shipment['Origin']} → {shipment['Destination']} | 📦 {shipment['Cargo_Type']}</p>
+        <p style='margin: 8px 0; color: #b4bcc8;'>⚖️ Weight: <span style='color: #e8eef5; font-weight: 600;'>{shipment['Weight']:,} kg</span> | 🚚 Truck: <span style='color: #e8eef5; font-weight: 600;'>{shipment['Truck_ID']}</span></p>
+        <span class="badge badge-{color}">Status: {shipment['Status']}</span>
+        <span class="badge badge-{priority_color}">Priority: {shipment['Priority']}</span>
+        <p style='margin: 8px 0; color: #8a92a4; font-size: 0.85rem;'>ETA: {shipment['Estimated_Delivery']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.progress(shipment['Progress'] / 100, text=f"Progress: {shipment['Progress']:.0f}%")
+
+elif page == "Maintenance":
+    st.markdown("<h1 style='margin-bottom: 30px;'>🔧 Maintenance & Audits</h1>", unsafe_allow_html=True)
+    
+    st.markdown("<h2 style='margin-bottom: 20px;'>📅 Service Schedule</h2>", unsafe_allow_html=True)
+    
+    for _, truck in st.session_state.fleet_data.iterrows():
+        service_date = datetime.strptime(truck['Next_Service'], '%Y-%m-%d')
+        days_until = (service_date - datetime.now()).days
+        
+        status_badge = 'red' if days_until < 0 else 'orange' if days_until < 7 else 'green'
+        status_text = 'OVERDUE' if days_until < 0 else 'URGENT' if days_until < 7 else 'SCHEDULED'
+        
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4 style='margin: 0 0 8px 0; color: #e8eef5;'>{truck['Truck_ID']} - {truck['Model']}</h4>
+        <p style='margin: 6px 0; color: #b4bcc8;'>🏥 Engine Health: <span style='color: #e8eef5; font-weight: 600;'>{truck['Engine_Health']}%</span> | 🛞 Tire Condition: <span style='color: #e8eef5; font-weight: 600;'>{truck['Tire_Condition']}%</span></p>
+        <p style='margin: 6px 0; color: #b4bcc8;'>📅 Next Service: <span style='color: #e8eef5; font-weight: 600;'>{truck['Next_Service']} ({days_until} days)</span></p>
+        <span class="badge badge-{status_badge}">{status_text}</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<h2 style='margin-top: 30px; margin-bottom: 20px;'>📋 Recent Services</h2>", unsafe_allow_html=True)
+    maint_df = st.session_state.maintenance_data.copy()
+    st.dataframe(maint_df[['Truck_ID', 'Service_Type', 'Date', 'Cost', 'Status', 'Notes']], use_container_width=True, hide_index=True)
+    
+    st.markdown("<h3 style='margin-top: 20px;'>Total Maintenance Costs</h3>", unsafe_allow_html=True)
+    st.metric("💰", f"${st.session_state.maintenance_data['Cost'].sum():,.0f}")
+
 elif page == "Analytics":
-
-    st.header("Fleet Intelligence")
-
-    r1c1, r1c2, r1c3 = st.columns(3)
-
-    avg_fuel = st.session_state.fleet_data['Fuel'].mean()
-
-    gauge_fig = go.Figure(
-        go.Indicator(
+    st.markdown("<h1 style='margin-bottom: 30px;'>📈 Fleet Intelligence</h1>", unsafe_allow_html=True)
+    
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        avg_fuel = st.session_state.fleet_data['Fuel'].mean()
+        fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=avg_fuel,
             title={'text': "Avg Fuel %"},
-            gauge={
-                'bar': {
-                    'color': "#f97316"
-                }
-            }
-        )
-    )
+            gauge={'bar': {'color': "#f97316"}, 'axis': {'range': [0, 100]}, 'threshold': {'line': {'color': 'red'}, 'thickness': 4, 'value': 20}}
+        ))
+        fig.update_layout(height=300, paper_bgcolor='#1a1f2e', font=dict(color='#e8eef5'))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with c2:
+        status_counts = st.session_state.fleet_data['Status'].value_counts()
+        fig = px.pie(values=status_counts.values, names=status_counts.index, title="Fleet Status", color_discrete_sequence=['#22c55e', '#f97316', '#ef4444', '#64748b'])
+        fig.update_layout(height=300, paper_bgcolor='#1a1f2e', font=dict(color='#e8eef5'))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with c3:
+        city_counts = st.session_state.fleet_data['City'].value_counts()
+        fig = px.bar(x=city_counts.index, y=city_counts.values, title="Trucks per City", color_discrete_sequence=['#f97316'])
+        fig.update_layout(plot_bgcolor="#1a1f2e", paper_bgcolor='#1a1f2e', font=dict(color='#e8eef5'), showlegend=False, height=300)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("⚙️ Avg Engine Health", f"{st.session_state.fleet_data['Engine_Health'].mean():.0f}%")
+    with col2:
+        st.metric("🛞 Avg Tire Condition", f"{st.session_state.fleet_data['Tire_Condition'].mean():.0f}%")
+    with col3:
+        total_cost = st.session_state.maintenance_data['Cost'].sum()
+        st.metric("💰 Total Maintenance", f"${total_cost:,.0f}")
+    
+    st.markdown("<h2 style='margin-top: 30px; margin-bottom: 20px;'>📊 Shipment Statistics</h2>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        status_ship = st.session_state.shipments_data['Status'].value_counts()
+        fig = px.bar(x=status_ship.index, y=status_ship.values, title="Shipments by Status", color_discrete_sequence=['#22c55e', '#f97316', '#ef4444', '#64748b'])
+        fig.update_layout(plot_bgcolor="#1a1f2e", paper_bgcolor='#1a1f2e', font=dict(color='#e8eef5'), showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        priority_ship = st.session_state.shipments_data['Priority'].value_counts()
+        fig = px.pie(values=priority_ship.values, names=priority_ship.index, title="Shipments by Priority", color_discrete_sequence=['#ef4444', '#f97316', '#22c55e'])
+        fig.update_layout(paper_bgcolor='#1a1f2e', font=dict(color='#e8eef5'))
+        st.plotly_chart(fig, use_container_width=True)
 
-    gauge_fig.update_layout(height=300)
-
-    r1c1.plotly_chart(
-        gauge_fig,
-        use_container_width=True
-    )
-
-    pie_fig = px.pie(
-        merged_data,
-        names='Status',
-        color_discrete_sequence=['#f97316', '#0f172a']
-    )
-
-    pie_fig.update_layout(title="Asset Status")
-
-    r1c2.plotly_chart(
-        pie_fig,
-        use_container_width=True
-    )
-
-    bar_fig = px.bar(
-        merged_data,
-        x='City',
-        title="Units per Hub",
-        color_discrete_sequence=['#f97316']
-    )
-
-    bar_fig.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)"
-    )
-
-    r1c3.plotly_chart(
-        bar_fig,
-        use_container_width=True
-    )
-
-    r2c1, r2c2, r2c3 = st.columns(3)
-
-    delays = len(
-        merged_data[
-            merged_data['Actual'] > merged_data['ETD']
-        ]
-    )
-
-    maintenance = len(
-        merged_data[
-            merged_data['Status'] == 'Maintenance'
-        ]
-    )
-
-    active_regions = len(
-        merged_data['City'].unique()
-    )
-
-    r2c1.metric("Delayed Arrivals", delays)
-    r2c2.metric("In Maintenance", maintenance)
-    r2c3.metric("Active Regions", active_regions)
-
-# --- 10. FOOTER ---
 st.divider()
+st.markdown("<p style='text-align: center; color: #8a92a4; font-size: 0.85rem; margin: 20px 0;'>🚚 OMNI Logistics Dashboard © 2026 | Real-time Fleet Management System | Balkan Operations Hub</p>", unsafe_allow_html=True)
 
-st.caption("OMNI Logistics Dashboard © 2026")
+
+BALKAN_CITIES = {
+    'Pristina': (42.66, 21.16),
+    'Belgrade': (44.78, 20.44),
+    'Skopje': (41.99, 21.42),
+    'Tirana': (41.32, 19.81),
+    'Sarajevo': (43.85, 18.41),
+    'Zagreb': (45.81, 15.98),
+    'Split': (43.51, 16.44),
+    'Niš': (43.32, 21.89),
+    'Podgorica': (42.43, 19.26),
+    'Ljubljana': (46.06, 14.51)
+}
+
+if 'drivers_data' not in st.session_state:
+    st.session_state.drivers_data = pd.DataFrame([
+        {
+            'Driver_ID': 'DRV-001',
+            'Driver': 'Dragan Marković',
+            'City': 'Belgrade',
+            'Years_Exp': 12,
+            'Safety_Score': 95,
+            'Deliveries': 342,
+            'Accidents': 0,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+381 60 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-002',
+            'Driver': 'Amar Hadžić',
+            'City': 'Sarajevo',
+            'Years_Exp': 8,
+            'Safety_Score': 88,
+            'Deliveries': 256,
+            'Accidents': 1,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+387 61 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-003',
+            'Driver': 'Luka Vuković',
+            'City': 'Zagreb',
+            'Years_Exp': 15,
+            'Safety_Score': 92,
+            'Deliveries': 478,
+            'Accidents': 0,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+385 91 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-004',
+            'Driver': 'Edin Džamić',
+            'City': 'Skopje',
+            'Years_Exp': 6,
+            'Safety_Score': 82,
+            'Deliveries': 145,
+            'Accidents': 2,
+            'License': 'C',
+            'Driver_Status': 'On Leave',
+            'Contact': '+389 70 1234567'
+        },
+        {
+            'Driver_ID': 'DRV-005',
+            'Driver': 'Bekim Shala',
+            'City': 'Pristina',
+            'Years_Exp': 10,
+            'Safety_Score': 90,
+            'Deliveries': 298,
+            'Accidents': 0,
+            'License': 'C',
+            'Driver_Status': 'Active',
+            'Contact': '+383 44 1234567'
+        }
+    ])
+
+if 'fleet_data' not in st.session_state:
+    st.session_state.fleet_data = pd.DataFrame([
+        {
+            'Truck_ID': 'PR-102-AL',
+            'Driver_ID': 'DRV-001',
+            'Model': 'Volvo FH16',
+            'City': 'Pristina',
+            'lat': 42.66,
+            'lon': 21.16,
+            'Status': 'Active',
+            'Fuel': 85,
+            'Route': 'Pristina → Belgrade',
+            'ETD': '14:00',
+            'Actual': '13:55',
+            'Mileage': 125430,
+            'Speed': 85,
+            'Engine_Health': 95,
+            'Tire_Condition': 92,
+            'Next_Service': '2025-06-15',
+            'Insurance_Exp': '2026-12-31',
+            'Max_Capacity': 25000
+        },
+        {
+            'Truck_ID': 'BG-550-TX',
+            'Driver_ID': 'DRV-002',
+            'Model': 'Mercedes Actros',
+            'City': 'Belgrade',
+            'lat': 44.78,
+            'lon': 20.44,
+            'Status': 'Active',
+            'Fuel': 42,
+            'Route': 'Belgrade → Skopje',
+            'ETD': '18:30',
+            'Actual': '18:45',
+            'Mileage': 89650,
+            'Speed': 78,
+            'Engine_Health': 88,
+            'Tire_Condition': 85,
+            'Next_Service': '2025-05-20',
+            'Insurance_Exp': '2025-11-30',
+            'Max_Capacity': 24000
+        },
+        {
+            'Truck_ID': 'ZG-991-HR',
+            'Driver_ID': 'DRV-003',
+            'Model': 'Scania R580',
+            'City': 'Zagreb',
+            'lat': 45.81,
+            'lon': 15.98,
+            'Status': 'Maintenance',
+            'Fuel': 91,
+            'Route': 'Zagreb → Split',
+            'ETD': '12:00',
+            'Actual': '12:05',
+            'Mileage': 201230,
+            'Speed': 0,
+            'Engine_Health': 76,
+            'Tire_Condition': 68,
+            'Next_Service': '2025-04-10',
+            'Insurance_Exp': '2026-03-15',
+            'Max_Capacity': 26000
+        },
+        {
+            'Truck_ID': 'SJ-442-BA',
+            'Driver_ID': 'DRV-004',
+            'Model': 'MAN TGX',
+            'City': 'Sarajevo',
+            'lat': 43.85,
+            'lon': 18.41,
+            'Status': 'Low Fuel',
+            'Fuel': 12,
+            'Route': 'Sarajevo → Tirana',
+            'ETD': '09:00',
+            'Actual': '09:30',
+            'Mileage': 154890,
+            'Speed': 92,
+            'Engine_Health': 91,
+            'Tire_Condition': 88,
+            'Next_Service': '2025-07-01',
+            'Insurance_Exp': '2026-08-20',
+            'Max_Capacity': 23500
+        },
+        {
+            'Truck_ID': 'SK-110-MK',
+            'Driver_ID': 'DRV-005',
+            'Model': 'Iveco Stralis',
+            'City': 'Skopje',
+            'lat': 41.99,
+            'lon': 21.42,
+            'Status': 'Active',
+            'Fuel': 77,
+            'Route': 'Skopje → Pristina',
+            'ETD': '11:00',
+            'Actual': '10:50',
+            'Mileage': 98760,
+            'Speed': 72,
+            'Engine_Health': 89,
+            'Tire_Condition': 91,
+            'Next_Service': '2025-05-28',
+            'Insurance_Exp': '2026-02-14',
+            'Max_Capacity': 22000
+        }
+    ])
+
+if 'shipments_data' not in st.session_state:
+    st.session_state.shipments_data = pd.DataFrame([
+        {
+            'Shipment_ID': 'SHP-001',
+            'Truck_ID': 'PR-102-AL',
+            'Origin': 'Pristina',
+            'Destination': 'Belgrade',
+            'Cargo_Type': 'Electronics',
+            'Weight': 2500,
+            'Status': 'In Transit',
+            'Progress': 65,
+            'Priority': 'High',
+            'Created': '2025-01-10 08:30',
+            'Estimated_Delivery': '2025-01-11 14:00'
+        },
+        {
+            'Shipment_ID': 'SHP-002',
+            'Truck_ID': 'BG-550-TX',
+            'Origin': 'Belgrade',
+            'Destination': 'Skopje',
+            'Cargo_Type': 'Food Products',
+            'Weight': 5000,
+            'Status': 'Pending',
+            'Progress': 0,
+            'Priority': 'Medium',
+            'Created': '2025-01-10 09:15',
+            'Estimated_Delivery': '2025-01-12 10:00'
+        },
+        {
+            'Shipment_ID': 'SHP-003',
+            'Truck_ID': 'ZG-991-HR',
+            'Origin': 'Zagreb',
+            'Destination': 'Split',
+            'Cargo_Type': 'Machinery',
+            'Weight': 8500,
+            'Status': 'Delayed',
+            'Progress': 40,
+            'Priority': 'High',
+            'Created': '2025-01-09 14:20',
+            'Estimated_Delivery': '2025-01-11 16:00'
+        },
+        {
+            'Shipment_ID': 'SHP-004',
+            'Truck_ID': 'SJ-442-BA',
+            'Origin': 'Sarajevo',
+            'Destination': 'Tirana',
+            'Cargo_Type': 'Textiles',
+            'Weight': 3200,
+            'Status': 'In Transit',
+            'Progress': 35,
+            'Priority': 'Low',
+            'Created': '2025-01-10 06:00',
+            'Estimated_Delivery': '2025-01-12 18:00'
+        },
+        {
+            'Shipment_ID': 'SHP-005',
+            'Truck_ID': 'SK-110-MK',
+            'Origin': 'Skopje',
+            'Destination': 'Pristina',
+            'Cargo_Type': 'Raw Materials',
+            'Weight': 6800,
+            'Status': 'Delivered',
+            'Progress': 100,
+            'Priority': 'Medium',
+            'Created': '2025-01-09 10:30',
+            'Estimated_Delivery': '2025-01-10 16:30'
+        },
+        {
+            'Shipment_ID': 'SHP-006',
+            'Truck_ID': 'PR-102-AL',
+            'Origin': 'Belgrade',
+            'Destination': 'Niš',
+            'Cargo_Type': 'Automotive Parts',
+            'Weight': 4100,
+            'Status': 'Pending',
+            'Progress': 0,
+            'Priority': 'High',
+            'Created': '2025-01-10 07:45',
+            'Estimated_Delivery': '2025-01-11 18:00'
+        }
+    ])
+
+if 'maintenance_data' not in st.session_state:
+    st.session_state.maintenance_data = pd.DataFrame([
+        {
+            'Truck_ID': 'PR-102-AL',
+            'Service_Type': 'Oil Change',
+            'Date': '2025-01-05',
+            'Cost': 250,
+            'Status': 'Completed',
+            'Mileage': 125200,
+            'Notes': 'Routine maintenance'
+        },
+        {
+            'Truck_ID': 'BG-550-TX',
+            'Service_Type': 'Tire Replacement',
+            'Date': '2025-01-03',
+            'Cost': 1200,
+            'Status': 'Completed',
+            'Mileage': 89100,
+            'Notes': 'All 4 tires replaced'
+        },
+        {
+            'Truck_ID': 'ZG-991-HR',
+            'Service_Type': 'Engine Diagnostic',
+            'Date': '2025-01-10',
+            'Cost': 450,
+            'Status': 'In Progress',
+            'Mileage': 201200,
+            'Notes': 'Engine health monitoring'
+        },
+        {
+            'Truck_ID': 'SJ-442-BA',
+            'Service_Type': 'Brake Inspection',
+            'Date': '2024-12-28',
+            'Cost': 350,
+            'Status': 'Completed',
+            'Mileage': 154500,
+            'Notes': 'Front and rear brakes checked'
+        },
+        {
+            'Truck_ID': 'SK-110-MK',
+            'Service_Type': 'Filter Replacement',
+            'Date': '2025-01-08',
+            'Cost': 180,
+            'Status': 'Completed',
+            'Mileage': 98500,
+            'Notes': 'Air and fuel filters replaced'
+        }
+    ])
+
+def simulate_live_data():
+    while True:
+        time.sleep(5)
+        try:
+            for idx in st.session_state.fleet_data.index:
+                if st.session_state.fleet_data.loc[idx, 'Status'] in ['Active', 'Low Fuel']:
+                    st.session_state.fleet_data.loc[idx, 'lat'] += random.uniform(-0.02, 0.02)
+                    st.session_state.fleet_data.loc[idx, 'lon'] += random.uniform(-0.02, 0.02)
+                    st.session_state.fleet_data.loc[idx, 'Fuel'] = max(5, st.session_state.fleet_data.loc[idx, 'Fuel'] - random.uniform(0.5, 2))
+                    st.session_state.fleet_data.loc[idx, 'Speed'] = random.randint(40, 120)
+                    st.session_state.fleet_data.loc[idx, 'Mileage'] += random.uniform(0.5, 3)
+                    
+                    if st.session_state.fleet_data.loc[idx, 'Fuel'] < 15 and st.session_state.fleet_data.loc[idx, 'Status'] != 'Low Fuel':
+                        st.session_state.fleet_data.loc[idx, 'Status'] = 'Low Fuel'
+                    elif st.session_state.fleet_data.loc[idx, 'Fuel'] > 30 and st.session_state.fleet_data.loc[idx, 'Status'] == 'Low Fuel':
+                        st.session_state.fleet_data.loc[idx, 'Status'] = 'Active'
+            
+            for idx in st.session_state.shipments_data.index:
+                if st.session_state.shipments_data.loc[idx, 'Status'] == 'In Transit':
+                    st.session_state.shipments_data.loc[idx, 'Progress'] = min(100, st.session_state.shipments_data.loc[idx, 'Progress'] + random.uniform(0.5, 3))
+                    if st.session_state.shipments_data.loc[idx, 'Progress'] >= 100:
+                        st.session_state.shipments_data.loc[idx, 'Status'] = 'Delivered'
+                    elif random.random() < 0.02:
+                        st.session_state.shipments_data.loc[idx, 'Status'] = 'Delayed'
+        except:
+            pass
+
+if 'simulation_started' not in st.session_state:
+    simulation_thread = threading.Thread(target=simulate_live_data, daemon=True)
+    simulation_thread.start()
+    st.session_state.simulation_started = True
+
+with st.sidebar:
+    st.markdown("<h1 style='color: #f97316;'>🚚 OMNI</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748b; margin-bottom: 20px;'>Balkan Fleet Hub</p>", unsafe_allow_html=True)
+    
+    page = st.radio(
+        "NAVIGATION",
+        [
+            "Dashboard",
+            "Trucks",
+            "Drivers",
+            "Shipments",
+            "Maintenance",
+            "Analytics"
+        ]
+    )
+    
+    st.divider()
+    
+    active_trucks = len(st.session_state.fleet_data[st.session_state.fleet_data['Status'] == 'Active'])
+    in_transit = len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'In Transit'])
+    
+    st.markdown(f"""
+    <div class="metric-card">
+    <strong>⚡ Live Status</strong><br>
+    <span class="status-active">✓ Active Trucks: {active_trucks}/{len(st.session_state.fleet_data)}</span><br>
+    <span class="status-active">📦 In Transit: {in_transit}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.info("OMNI V2.0 | Real-time Fleet Management")
+
+merged_data = st.session_state.fleet_data.merge(
+    st.session_state.drivers_data,
+    on="Driver_ID",
+    how="left"
+)
+
+if page == "Dashboard":
+    st.header("📊 Operations Control Center")
+    
+    c1, c2, c3, c4 = st.columns(4)
+    
+    with c1:
+        st.metric("🚚 Active Trucks", len(st.session_state.fleet_data[st.session_state.fleet_data['Status'] == 'Active']))
+    with c2:
+        st.metric("📦 In Transit", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'In Transit']))
+    with c3:
+        st.metric("✅ Delivered", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'Delivered']))
+    with c4:
+        st.metric("⚠️ Critical", len(st.session_state.fleet_data[st.session_state.fleet_data['Fuel'] < 20]))
+    
+    st.subheader("🗺️ Live GPS Fleet Tracking")
+    
+    fig = go.Figure()
+    
+    for _, row in merged_data.iterrows():
+        color_map = {'Active': 'green', 'Maintenance': 'orange', 'Low Fuel': 'red', 'Inactive': 'gray'}
+        marker_color = color_map.get(row['Status'], 'blue')
+        
+        fig.add_trace(
+            go.Scattermapbox(
+                lat=[row["lat"]],
+                lon=[row["lon"]],
+                mode="markers+text",
+                text=[row["Truck_ID"]],
+                textposition="top center",
+                marker=go.scattermapbox.Marker(size=16, color=marker_color, opacity=0.9),
+                hovertemplate=f"""
+                <b>Truck:</b> {row['Truck_ID']}<br>
+                <b>Driver:</b> {row['Driver']}<br>
+                <b>Route:</b> {row['Route']}<br>
+                <b>Fuel:</b> {row['Fuel']:.0f}%<br>
+                <b>Speed:</b> {row['Speed']} km/h<br>
+                <b>Status:</b> {row['Status']}<br>
+                <extra></extra>
+                """
+            )
+        )
+    
+    fig.update_layout(
+        mapbox=dict(style="open-street-map", center=dict(lat=44.0, lon=20.5), zoom=5),
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=600,
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.subheader("📋 Recent Shipments")
+        recent_ships = st.session_state.shipments_data.sort_values('Created', ascending=False).head(5)[['Shipment_ID', 'Origin', 'Destination', 'Status', 'Progress']]
+        st.dataframe(recent_ships, use_container_width=True, hide_index=True)
+    
+    with col2:
+        st.subheader("🚨 Upcoming Maintenance")
+        maint = st.session_state.fleet_data[['Truck_ID', 'Next_Service', 'Engine_Health']].sort_values('Engine_Health').head(5)
+        st.dataframe(maint, use_container_width=True, hide_index=True)
+    
+    with col3:
+        st.subheader("📊 Fleet Status")
+        status_counts = st.session_state.fleet_data['Status'].value_counts()
+        fig_pie = px.pie(values=status_counts.values, names=status_counts.index, color_discrete_sequence=['#22c55e', '#f97316', '#ef4444', '#64748b'])
+        fig_pie.update_layout(height=350)
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+elif page == "Trucks":
+    st.header("🚚 Fleet Management")
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.subheader("Fleet Registry")
+        selected_truck = st.selectbox("Select Truck", merged_data['Truck_ID'].unique())
+        truck_data = merged_data[merged_data['Truck_ID'] == selected_truck].iloc[0]
+    
+    with col2:
+        st.subheader(f"📋 Details - {selected_truck}")
+        
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("Model", truck_data['Model'])
+            st.metric("Mileage", f"{truck_data['Mileage']:,.0f} km")
+        with c2:
+            st.metric("Fuel", f"{truck_data['Fuel']:.0f}%")
+            st.metric("Speed", f"{truck_data['Speed']} km/h")
+        with c3:
+            st.metric("Engine", f"{truck_data['Engine_Health']}%")
+            st.metric("Tires", f"{truck_data['Tire_Condition']}%")
+        with c4:
+            st.metric("Driver", truck_data['Driver'][:20])
+            st.metric("Status", truck_data['Status'])
+        
+        st.markdown("---")
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Capacity", f"{truck_data['Max_Capacity']:,.0f} kg")
+        with c2:
+            st.metric("Insurance", truck_data['Insurance_Exp'])
+        with c3:
+            st.metric("Next Service", truck_data['Next_Service'])
+        
+        st.markdown("---")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.write("**📦 Active Shipments**")
+            shipments = st.session_state.shipments_data[st.session_state.shipments_data['Truck_ID'] == selected_truck]
+            if not shipments.empty:
+                for _, ship in shipments.iterrows():
+                    status_color = 'green' if ship['Status'] == 'Delivered' else 'orange' if ship['Status'] == 'Delayed' else 'blue'
+                    st.markdown(f"""
+                    <div class="metric-card">
+                    📦 <strong>{ship['Shipment_ID']}</strong><br>
+                    {ship['Origin']} → {ship['Destination']}<br>
+                    <span class="badge badge-{status_color}">{ship['Status']}</span>
+                    Progress: {ship['Progress']:.0f}%
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No active shipments")
+        
+        with col2:
+            st.write("**🔧 Service History**")
+            services = st.session_state.maintenance_data[st.session_state.maintenance_data['Truck_ID'] == selected_truck]
+            if not services.empty:
+                st.dataframe(services[['Service_Type', 'Date', 'Cost', 'Status']].tail(5), use_container_width=True, hide_index=True)
+            else:
+                st.info("No service records")
+
+elif page == "Drivers":
+    st.header("👥 Driver Management")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("👥 Total Drivers", len(st.session_state.drivers_data))
+    with col2:
+        active = len(st.session_state.drivers_data[st.session_state.drivers_data['Driver_Status'] == 'Active'])
+        st.metric("✓ Active", active)
+    with col3:
+        avg_score = st.session_state.drivers_data['Safety_Score'].mean()
+        st.metric("Avg Safety Score", f"{avg_score:.0f}%")
+    
+    st.subheader("👤 Driver Profiles")
+    
+    for _, driver in st.session_state.drivers_data.iterrows():
+        col1, col2 = st.columns([0.5, 2])
+        
+        with col1:
+            st.markdown(f"<div style='font-size: 2rem; text-align: center;'>👤</div>", unsafe_allow_html=True)
+        
+        with col2:
+            safety_color = 'green' if driver['Safety_Score'] >= 90 else 'orange' if driver['Safety_Score'] >= 80 else 'red'
+            status_color = 'green' if driver['Driver_Status'] == 'Active' else 'orange'
+            st.markdown(f"""
+            <div class="metric-card">
+            <strong>{driver['Driver']}</strong><br>
+            <span style="color: #64748b; font-size: 0.9rem;">{driver['Driver_ID']} | {driver['City']}</span><br>
+            📚 Experience: {driver['Years_Exp']} years | 📜 License: {driver['License']}<br>
+            ✅ Deliveries: {driver['Deliveries']} | ⚠️ Accidents: {driver['Accidents']}<br>
+            📞 {driver['Contact']}<br>
+            <span class="badge badge-{safety_color}">Safety: {driver['Safety_Score']}%</span>
+            <span class="badge badge-{status_color}">{driver['Driver_Status']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+elif page == "Shipments":
+    st.header("📦 Shipment Tracking")
+    
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("📦 Total", len(st.session_state.shipments_data))
+    with c2:
+        st.metric("🚚 In Transit", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'In Transit']))
+    with c3:
+        st.metric("✅ Delivered", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'Delivered']))
+    with c4:
+        st.metric("🔴 Delayed", len(st.session_state.shipments_data[st.session_state.shipments_data['Status'] == 'Delayed']))
+    
+    st.subheader("📋 Active Shipments")
+    
+    for _, shipment in st.session_state.shipments_data.iterrows():
+        status_color = {'In Transit': 'blue', 'Delivered': 'green', 'Delayed': 'red', 'Pending': 'orange'}
+        color = status_color.get(shipment['Status'], 'orange')
+        priority_color = 'red' if shipment['Priority'] == 'High' else 'orange' if shipment['Priority'] == 'Medium' else 'green'
+        
+        st.markdown(f"""
+        <div class="metric-card">
+        <strong>{shipment['Shipment_ID']}</strong><br>
+        📍 {shipment['Origin']} → {shipment['Destination']} | 📦 {shipment['Cargo_Type']}<br>
+        ⚖️ Weight: {shipment['Weight']:,} kg | 🚚 Truck: {shipment['Truck_ID']}<br>
+        <span class="badge badge-{color}">Status: {shipment['Status']}</span>
+        <span class="badge badge-{priority_color}">Priority: {shipment['Priority']}</span><br>
+        ETA: {shipment['Estimated_Delivery']}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.progress(shipment['Progress'] / 100, text=f"{shipment['Progress']:.0f}%")
+
+elif page == "Maintenance":
+    st.header("🔧 Maintenance & Audits")
+    
+    st.subheader("📅 Service Schedule")
+    
+    for _, truck in st.session_state.fleet_data.iterrows():
+        service_date = datetime.strptime(truck['Next_Service'], '%Y-%m-%d')
+        days_until = (service_date - datetime.now()).days
+        
+        status_badge = 'red' if days_until < 0 else 'orange' if days_until < 7 else 'green'
+        status_text = 'OVERDUE' if days_until < 0 else 'URGENT' if days_until < 7 else 'SCHEDULED'
+        
+        st.markdown(f"""
+        <div class="metric-card">
+        <strong>{truck['Truck_ID']} - {truck['Model']}</strong><br>
+        🏥 Engine Health: {truck['Engine_Health']}% | 🛞 Tire Condition: {truck['Tire_Condition']}%<br>
+        📅 Next Service: {truck['Next_Service']} ({days_until} days)<br>
+        <span class="badge badge-{status_badge}">{status_text}</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.subheader("📋 Recent Services")
+    maint_df = st.session_state.maintenance_data.copy()
+    st.dataframe(maint_df[['Truck_ID', 'Service_Type', 'Date', 'Cost', 'Status', 'Notes']], use_container_width=True, hide_index=True)
+    
+    st.metric("Total Maintenance Costs", f"${st.session_state.maintenance_data['Cost'].sum():,.0f}")
+
+elif page == "Analytics":
+    st.header("📈 Fleet Intelligence")
+    
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        avg_fuel = st.session_state.fleet_data['Fuel'].mean()
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=avg_fuel,
+            title={'text': "Avg Fuel %"},
+            gauge={'bar': {'color': "#f97316"}, 'axis': {'range': [0, 100]}}
+        ))
+        fig.update_layout(height=300)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with c2:
+        status_counts = st.session_state.fleet_data['Status'].value_counts()
+        fig = px.pie(values=status_counts.values, names=status_counts.index, title="Fleet Status", color_discrete_sequence=['#22c55e', '#f97316', '#ef4444', '#64748b'])
+        fig.update_layout(height=300)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with c3:
+        city_counts = st.session_state.fleet_data['City'].value_counts()
+        fig = px.bar(x=city_counts.index, y=city_counts.values, title="Trucks per City", color_discrete_sequence=['#f97316'])
+        fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", showlegend=False, height=300)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("⚙️ Avg Engine Health", f"{st.session_state.fleet_data['Engine_Health'].mean():.0f}%")
+    with col2:
+        st.metric("🛞 Avg Tire Condition", f"{st.session_state.fleet_data['Tire_Condition'].mean():.0f}%")
+    with col3:
+        total_cost = st.session_state.maintenance_data['Cost'].sum()
+        st.metric("💰 Total Maintenance", f"${total_cost:,.0f}")
+    
+    st.subheader("📊 Shipment Statistics")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        status_ship = st.session_state.shipments_data['Status'].value_counts()
+        fig = px.bar(x=status_ship.index, y=status_ship.values, title="Shipments by Status", color_discrete_sequence=['#22c55e', '#f97316', '#ef4444', '#64748b'])
+        fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        priority_ship = st.session_state.shipments_data['Priority'].value_counts()
+        fig = px.pie(values=priority_ship.values, names=priority_ship.index, title="Shipments by Priority", color_discrete_sequence=['#ef4444', '#f97316', '#22c55e'])
+        st.plotly_chart(fig, use_container_width=True)
+
+st.divider()
+st.caption("🚚 OMNI Logistics Dashboard © 2026 | Real-time Fleet Management System | Balkan Operations Hub")
