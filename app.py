@@ -813,11 +813,85 @@ if page == "Dashboard":
 elif page == "Trucks":
     st.markdown("<h1 style='margin-bottom: 30px;'>🚚 Fleet Management</h1>", unsafe_allow_html=True)
     
+    # Add new truck section
+    st.markdown("<h2 style='margin-bottom: 20px; color: #f97316;'>➕ Add New Truck</h2>", unsafe_allow_html=True)
+    
+    col_form1, col_form2 = st.columns(2)
+    
+    with col_form1:
+        with st.form("add_truck_form"):
+            new_truck_id = st.text_input("Truck ID (e.g., PR-103-AL)", placeholder="PR-103-AL")
+            new_truck_model = st.text_input("Model", placeholder="Volvo FH16")
+            new_truck_city = st.selectbox("Current City", list(BALKAN_CITIES.keys()), key="new_truck_city")
+            new_truck_driver = st.selectbox("Assign Driver", st.session_state.drivers_data['Driver_ID'].values, key="new_truck_driver")
+            new_truck_capacity = st.number_input("Max Capacity (kg)", 15000, 30000, 22000)
+            new_truck_fuel = st.slider("Initial Fuel Level", 0, 100, 80)
+            new_truck_route = st.text_input("Route", placeholder="City1 → City2")
+            new_truck_status = st.selectbox("Status", ["Active", "Maintenance", "Inactive"], key="new_truck_status")
+            
+            submit_truck = st.form_submit_button("✅ Add Truck", use_container_width=True)
+            
+            if submit_truck:
+                if new_truck_id and new_truck_model:
+                    # Check for duplicate Truck ID
+                    if new_truck_id in st.session_state.fleet_data['Truck_ID'].values:
+                        st.error(f"❌ Truck ID {new_truck_id} already exists!")
+                    else:
+                        city_coords = BALKAN_CITIES[new_truck_city]
+                        new_truck = pd.DataFrame([{
+                            'Truck_ID': new_truck_id,
+                            'Driver_ID': new_truck_driver,
+                            'Model': new_truck_model,
+                            'City': new_truck_city,
+                            'lat': city_coords[0],
+                            'lon': city_coords[1],
+                            'Status': new_truck_status,
+                            'Fuel': new_truck_fuel,
+                            'Route': new_truck_route,
+                            'ETD': '00:00',
+                            'Actual': '00:00',
+                            'Mileage': 0,
+                            'Speed': 0,
+                            'Engine_Health': 95,
+                            'Tire_Condition': 95,
+                            'Next_Service': (datetime.now() + timedelta(days=60)).strftime('%Y-%m-%d'),
+                            'Insurance_Exp': (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d'),
+                            'Max_Capacity': new_truck_capacity
+                        }])
+                        st.session_state.fleet_data = pd.concat([st.session_state.fleet_data, new_truck], ignore_index=True)
+                        st.success(f"✅ Truck {new_truck_id} added successfully!")
+                        st.rerun()
+                else:
+                    st.error("Please fill in Truck ID and Model")
+    
+    with col_form2:
+        st.info("📝 Fill in the form to add a new truck to the fleet", icon="ℹ️")
+    
+    st.divider()
+    
+    # Delete truck section
+    st.markdown("<h2 style='margin-bottom: 20px; color: #ef4444;'>🗑️ Remove Truck</h2>", unsafe_allow_html=True)
+    
+    col_del1, col_del2 = st.columns(2)
+    
+    with col_del1:
+        truck_to_delete = st.selectbox("Select Truck to Delete", st.session_state.fleet_data['Truck_ID'].unique(), key="delete_truck")
+        if st.button("🗑️ Delete Truck", use_container_width=True, key="btn_delete_truck"):
+            truck_model = st.session_state.fleet_data[st.session_state.fleet_data['Truck_ID'] == truck_to_delete]['Model'].values[0]
+            st.session_state.fleet_data = st.session_state.fleet_data[st.session_state.fleet_data['Truck_ID'] != truck_to_delete]
+            st.success(f"✅ Truck {truck_to_delete} ({truck_model}) deleted!")
+            st.rerun()
+    
+    with col_del2:
+        st.error("⚠️ This action cannot be undone", icon="❌")
+    
+    st.divider()
+    
     col1, col2 = st.columns([1, 3])
     
     with col1:
         st.markdown("<h3 style='margin-bottom: 15px;'>Fleet Registry</h3>", unsafe_allow_html=True)
-        selected_truck = st.selectbox("Select Truck", merged_data['Truck_ID'].unique(), label_visibility="collapsed")
+        selected_truck = st.selectbox("Select Truck", st.session_state.fleet_data['Truck_ID'].unique(), label_visibility="collapsed")
         truck_data = merged_data[merged_data['Truck_ID'] == selected_truck].iloc[0]
     
     with col2:
@@ -878,18 +952,77 @@ elif page == "Trucks":
 elif page == "Drivers":
     st.markdown("<h1 style='margin-bottom: 30px;'>👥 Driver Management</h1>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     
     with col1:
-        st.metric("👥 Total Drivers", len(st.session_state.drivers_data))
-    with col2:
-        active = len(st.session_state.drivers_data[st.session_state.drivers_data['Driver_Status'] == 'Active'])
-        st.metric("✓ Active", active)
-    with col3:
-        avg_score = st.session_state.drivers_data['Safety_Score'].mean()
-        st.metric("Avg Safety Score", f"{avg_score:.0f}%")
+        col1a, col1b, col1c = st.columns(3)
+        
+        with col1a:
+            st.metric("👥 Total Drivers", len(st.session_state.drivers_data))
+        with col1b:
+            active = len(st.session_state.drivers_data[st.session_state.drivers_data['Driver_Status'] == 'Active'])
+            st.metric("✓ Active", active)
+        with col1c:
+            avg_score = st.session_state.drivers_data['Safety_Score'].mean()
+            st.metric("Avg Safety Score", f"{avg_score:.0f}%")
     
-    st.markdown("<h2 style='margin-top: 30px; margin-bottom: 20px;'>👤 Driver Profiles</h2>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<h3 style='color: #f97316;'>➕ Add New Driver</h3>", unsafe_allow_html=True)
+        with st.form("add_driver_form"):
+            new_driver_id = st.text_input("Driver ID (e.g., DRV-006)", placeholder="DRV-006")
+            new_driver_name = st.text_input("Full Name", placeholder="John Doe")
+            new_driver_city = st.selectbox("Home City", list(BALKAN_CITIES.keys()))
+            new_driver_exp = st.slider("Years of Experience", 0, 40, 5)
+            new_driver_license = st.selectbox("License Category", ["A", "B", "C", "D"])
+            new_driver_contact = st.text_input("Contact Number", placeholder="+381 60 1234567")
+            new_driver_status = st.selectbox("Status", ["Active", "On Leave", "Inactive"])
+            
+            submit_driver = st.form_submit_button("✅ Add Driver", use_container_width=True)
+            
+            if submit_driver:
+                if new_driver_id and new_driver_name:
+                    # Check for duplicate Driver ID
+                    if new_driver_id in st.session_state.drivers_data['Driver_ID'].values:
+                        st.error(f"❌ Driver ID {new_driver_id} already exists!")
+                    else:
+                        new_driver = pd.DataFrame([{
+                            'Driver_ID': new_driver_id,
+                            'Driver': new_driver_name,
+                            'City': new_driver_city,
+                            'Years_Exp': new_driver_exp,
+                            'Safety_Score': random.randint(75, 99),
+                            'Deliveries': 0,
+                            'Accidents': 0,
+                            'License': new_driver_license,
+                            'Driver_Status': new_driver_status,
+                            'Contact': new_driver_contact
+                        }])
+                        st.session_state.drivers_data = pd.concat([st.session_state.drivers_data, new_driver], ignore_index=True)
+                        st.success(f"✅ Driver {new_driver_name} added successfully!")
+                        st.rerun()
+                else:
+                    st.error("Please fill in Driver ID and Name")
+    
+    st.divider()
+    st.markdown("<h2 style='margin-bottom: 20px;'>👤 Driver Profiles</h2>", unsafe_allow_html=True)
+    
+    # Delete driver section
+    col_delete = st.columns(1)[0]
+    with col_delete:
+        st.markdown("<h3 style='color: #ef4444;'>🗑️ Remove Driver</h3>", unsafe_allow_html=True)
+        driver_to_delete = st.selectbox("Select Driver to Delete", st.session_state.drivers_data['Driver_ID'].unique(), key="delete_driver")
+        
+        col_del1, col_del2 = st.columns(2)
+        with col_del1:
+            if st.button("🗑️ Delete Driver", use_container_width=True, key="btn_delete_driver"):
+                driver_name = st.session_state.drivers_data[st.session_state.drivers_data['Driver_ID'] == driver_to_delete]['Driver'].values[0]
+                st.session_state.drivers_data = st.session_state.drivers_data[st.session_state.drivers_data['Driver_ID'] != driver_to_delete]
+                st.success(f"✅ Driver {driver_name} ({driver_to_delete}) deleted!")
+                st.rerun()
+        with col_del2:
+            st.info("⚠️ This action cannot be undone", icon="⚠️")
+    
+    st.divider()
     
     for _, driver in st.session_state.drivers_data.iterrows():
         col1, col2 = st.columns([0.5, 2])
@@ -986,7 +1119,15 @@ elif page == "Analytics":
             mode="gauge+number",
             value=avg_fuel,
             title={'text': "Avg Fuel %"},
-            gauge={'bar': {'color': "#f97316"}, 'axis': {'range': [0, 100]}, 'threshold': {'line': {'color': 'red'}, 'thickness': 4, 'value': 20}}
+            gauge={
+                'bar': {'color': "#f97316"}, 
+                'axis': {'range': [0, 100]},
+                'threshold': {
+                    'line': {'color': 'red'}, 
+                    'thickness': 0.2, 
+                    'value': 20
+                }
+            }
         ))
         fig.update_layout(height=300, paper_bgcolor='#1a1f2e', font=dict(color='#e8eef5'))
         st.plotly_chart(fig, use_container_width=True)
