@@ -805,7 +805,7 @@ elif page == "Trucks":
     col_form1, col_form2 = st.columns(2)
     
     with col_form1:
-        with st.form("add_truck_form"):
+        with st.form("add_truck_form", clear_on_submit=True):
             new_truck_id = st.text_input("Truck ID (e.g., PR-103-AL)", placeholder="PR-103-AL")
             new_truck_model = st.text_input("Model", placeholder="Volvo FH16")
             new_truck_city = st.selectbox("Current City", list(BALKAN_CITIES.keys()), key="new_truck_city")
@@ -846,6 +846,7 @@ elif page == "Trucks":
                         }])
                         st.session_state.fleet_data = pd.concat([st.session_state.fleet_data, new_truck], ignore_index=True)
                         st.success(f"✅ Truck {new_truck_id} added successfully!")
+                        time.sleep(1)
                         st.rerun()
                 else:
                     st.error("Please fill in Truck ID and Model")
@@ -866,6 +867,7 @@ elif page == "Trucks":
             truck_model = st.session_state.fleet_data[st.session_state.fleet_data['Truck_ID'] == truck_to_delete]['Model'].values[0]
             st.session_state.fleet_data = st.session_state.fleet_data[st.session_state.fleet_data['Truck_ID'] != truck_to_delete]
             st.success(f"✅ Truck {truck_to_delete} ({truck_model}) deleted!")
+            time.sleep(1)
             st.rerun()
     
     with col_del2:
@@ -955,7 +957,7 @@ elif page == "Drivers":
     
     with col2:
         st.markdown("<h3 style='color: #ffffff;'>➕ Add New Driver</h3>", unsafe_allow_html=True)
-        with st.form("add_driver_form"):
+        with st.form("add_driver_form", clear_on_submit=True):
             new_driver_id = st.text_input("Driver ID (e.g., DRV-006)", placeholder="DRV-006")
             new_driver_name = st.text_input("Full Name", placeholder="John Doe")
             new_driver_city = st.selectbox("Home City", list(BALKAN_CITIES.keys()))
@@ -986,6 +988,7 @@ elif page == "Drivers":
                         }])
                         st.session_state.drivers_data = pd.concat([st.session_state.drivers_data, new_driver], ignore_index=True)
                         st.success(f"✅ Driver {new_driver_name} added successfully!")
+                        time.sleep(1)
                         st.rerun()
                 else:
                     st.error("Please fill in Driver ID and Name")
@@ -1005,6 +1008,7 @@ elif page == "Drivers":
                 driver_name = st.session_state.drivers_data[st.session_state.drivers_data['Driver_ID'] == driver_to_delete]['Driver'].values[0]
                 st.session_state.drivers_data = st.session_state.drivers_data[st.session_state.drivers_data['Driver_ID'] != driver_to_delete]
                 st.success(f"✅ Driver {driver_name} ({driver_to_delete}) deleted!")
+                time.sleep(1)
                 st.rerun()
         with col_del2:
             st.info("⚠️ This action cannot be undone", icon="⚠️")
